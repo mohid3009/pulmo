@@ -9,7 +9,7 @@ export type Win = 60 | 300 | 900 | 0 // seconds, 0 = all
 
 const HEIGHT = 400
 const DASH: Record<Sensor, number[]> = { mq3: [], mq135: [7, 3], mq7: [2, 3] }
-const FONT = '"Nunito Variable", system-ui, sans-serif'
+const FONT = '"Manrope Variable", system-ui, sans-serif'
 
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
 const columns = (s: Series): uPlot.AlignedData => [s.x, s.y.mq3, s.y.mq135, s.y.mq7]
