@@ -1,4 +1,4 @@
-import { DEFAULT_URL, FLUSH_MS, SENSORS, STALE_MS } from '../config'
+import { DEFAULT_URL, FLUSH_MS, SENSORS, STALE_MS, summarizeCapture } from '../config'
 import { isReboot, parseFrame, type Volts } from '../parse/parse'
 import { SimSource } from '../sources/sim'
 import type { ConnStatus, DataSource } from '../sources/source'
@@ -30,6 +30,7 @@ class Store {
   notice = ''
   device = { state: '', warmupLeft: 0, warmupTotal: 0 }
   toast = { id: 0, text: '' }
+  result: { n: number; text: string } | null = null // capture result popup
   last: Reading | null = null
   live = emptySeries()
   log: { t: number; text: string }[] = []
@@ -67,6 +68,11 @@ class Store {
   addLog(text: string) {
     this.log.push({ t: Date.now(), text })
     if (this.log.length > 500) this.log.shift()
+  }
+
+  dismissResult() {
+    this.result = null
+    this.bump()
   }
 
   /** Short friendly notice for the UI; App hides it after a few seconds. */
@@ -147,6 +153,13 @@ class Store {
     }, 2500)
   }
 
+  /** Same as holding the device button for 3 s: restarts warm-up and discards the baseline. */
+  requestRestart() {
+    if (!this.src || !this.device.state) return
+    this.src.requestRestart()
+    this.addLog('Asked the device to restart warm-up')
+  }
+
   private addEvent(e: Event) {
     pushEvent(this.live, e)
     this.rec?.events.push(e)
@@ -166,6 +179,13 @@ class Store {
 
     if (m.type === 'hello') {
       this.addLog(`Device hello: state ${m.state || 'unknown'}, ${m.hasBaseline ? 'baseline stored' : 'no baseline yet'}`)
+      // A rebooted device has lost its baseline; stop using the old one for ratios.
+      if (!m.hasBaseline && lastBaseline(this.live.events)) this.addEvent({ t: now, kind: 'restart' })
+    } else if (m.type === 'restart') {
+      this.device = { state: 'warmup', warmupLeft: 0, warmupTotal: 0 }
+      if (lastBaseline(this.live.events)) this.addEvent({ t: now, kind: 'restart' })
+      this.addLog('Warm-up restarted. Any old baseline is discarded.')
+      this.notify('Warm-up restarted. A new baseline is taken after warm-up.')
     } else if (m.type === 'live') {
       if (isReboot(this.prevMs, m.ms)) {
         this.addLog('Device uptime went backwards: device restarted. Earlier data kept.')
@@ -195,7 +215,7 @@ class Store {
     } else {
       this.addEvent({ t: now, kind: 'capture', n: m.n, v: pick(m), ratio: m.ratio })
       this.addLog(`Capture ${m.n} received`)
-      this.notify(`Capture ${m.n} done. Results are in the table below.`)
+      this.result = { n: m.n, text: summarizeCapture(SENSORS.map((k) => m.ratio[k])) }
     }
     this.bump()
   }

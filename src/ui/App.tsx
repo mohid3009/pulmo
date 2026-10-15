@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { SENSORS, SENSOR_HINT, SENSOR_LABEL } from '../config'
+import { CAPTURE_S, SENSORS, SENSOR_HINT, SENSOR_LABEL } from '../config'
 import { capturesCsv, download, readingsCsv } from '../state/csv'
 import * as db from '../state/db'
 import { captures, lastBaseline, seriesFrom, type Series } from '../state/series'
@@ -11,7 +11,6 @@ import { CaptureTable, CompareChart, SessionList } from './Tables'
 const WINDOWS: [Win, string][] = [[60, '1 min'], [300, '5 min'], [900, '15 min'], [0, 'All']]
 const CONN_LABEL = { disconnected: 'Disconnected', connecting: 'Connecting', connected: 'Connected' }
 const STEPS: [string, string][] = [['warmup', 'Warming up'], ['baseline', 'Baseline'], ['ready', 'Ready'], ['capturing', 'Capturing']]
-const CAPTURE_S = 5
 const LUNG_ACTIVITIES = [
   ['breath', 'Breathing practice', '5 calm minutes'],
   ['move', 'Gentle movement', '20 minutes today'],
@@ -120,9 +119,9 @@ function Journey({ demo }: { demo: boolean }) {
   } else if (state === 'baseline') {
     msg = 'Measuring clean room air as the baseline. Keep breath away from the sensors for a moment.'
   } else if (state === 'ready') {
-    msg = `Ready. Breathe gently toward the sensors, then press Start capture${demo ? '' : ' (or the button on the device)'} for a 5 second capture.`
+    msg = `Ready. Breathe gently toward the sensors, then press Start capture${demo ? '' : ' (or the button on the device)'} for a ${CAPTURE_S} second capture.`
   } else if (state === 'capturing') {
-    msg = 'Capturing for 5 seconds. Keep breathing gently toward the sensors.'
+    msg = `Capturing for ${CAPTURE_S} seconds. Keep breathing gently toward the sensors.`
     if (start) progress = Math.min(1, (Date.now() - start) / (CAPTURE_S * 1000))
   } else if (state) {
     msg = `Device state: ${state}`
@@ -138,11 +137,22 @@ function Journey({ demo }: { demo: boolean }) {
       </ol>
       <div className="journey-msg">
         <p>{msg}</p>
-        {(state === 'ready' || state === 'capturing') && (
-          <button className="primary capture-btn" onClick={() => store.requestCapture()} disabled={state !== 'ready'}>
-            {state === 'capturing' ? 'Capturing…' : 'Start capture'}
-          </button>
-        )}
+        <span className="journey-actions">
+          {(state === 'ready' || state === 'capturing') && (
+            <button className="primary capture-btn" onClick={() => store.requestCapture()} disabled={state !== 'ready'}>
+              {state === 'capturing' ? 'Capturing…' : 'Start capture'}
+            </button>
+          )}
+          {state && state !== 'warmup' && (
+            <button
+              className="capture-btn"
+              title={demo ? undefined : 'Same as holding the device button for 3 s'}
+              onClick={() => confirm('Restart warm-up? The current baseline is discarded and a new one is taken after warm-up.') && store.requestRestart()}
+            >
+              Restart warm-up
+            </button>
+          )}
+        </span>
       </div>
       {progress != null && (
         <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
@@ -160,25 +170,25 @@ function Onboarding() {
       <div className="onboard">
         <div>
           <h3><span className="pulse" /> Looking for the device</h3>
-          <p>Trying {s.url}. Make sure this laptop is on the PulmoSense WiFi network and the device is switched on.</p>
+          <p>Trying {s.url}. Make sure this laptop is on the same WiFi as the device and the address matches the IP on the device screen.</p>
         </div>
       </div>
     )
   if (s.conn === 'connected')
     return (
       <div className="onboard">
-        <div><h3><span className="pulse" /> Connected</h3><p>Waiting for the first reading.</p></div>
+        <div><h3><span className="pulse" /> Connected</h3><p>Waiting for the first reading. The device starts warming up once it sees the dashboard.</p></div>
       </div>
     )
   return (
     <div className="onboard">
       <div>
         <h3>Let's get connected</h3>
-        <p className="muted">Not connected. Join the PulmoSense WiFi network, then press Connect, or turn on demo mode.</p>
+        <p className="muted">Not connected. Get on the same WiFi as the device, then press Connect, or turn on demo mode.</p>
         <ol className="howto">
-          <li><span><b>Switch on</b> the PulmoSense device.</span></li>
-          <li><span><b>Join the WiFi</b> network called PulmoSense on this laptop (default password pulmosense1).</span></li>
-          <li><span><b>Press Connect</b> at the top.</span></li>
+          <li><span><b>Switch on</b> the PulmoSense device. Its screen shows <b>WAITING</b> with a WiFi name and IP.</span></li>
+          <li><span><b>Join that WiFi</b> on this laptop. If it says PulmoSense, the password is pulmosense1.</span></li>
+          <li><span><b>Enter ws://&lt;IP&gt;:81</b> at the top (192.168.4.1 on the PulmoSense network) and press Connect.</span></li>
         </ol>
         <div className="or"><span>no device handy?</span></div>
         <button className="primary" onClick={() => void s.setDemo(true)}>Try demo mode</button>
@@ -537,6 +547,16 @@ export function App() {
           ))}
         </ol>
       </details>
+
+      {s.result && !viewing && (
+        <div className="modal-back" onClick={() => s.dismissResult()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="res-title" onClick={(e) => e.stopPropagation()}>
+            <h2 id="res-title">Capture {s.result.n} complete</h2>
+            <p>{s.result.text}</p>
+            <button className="primary" autoFocus onClick={() => s.dismissResult()}>OK</button>
+          </div>
+        </div>
+      )}
 
       {s.toast.id > toastGone && s.toast.text && (
         <div className="toast" role="status" key={s.toast.id}>{s.toast.text}</div>

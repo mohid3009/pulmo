@@ -15,6 +15,15 @@ export function describeRatio(r: number): string {
   return 'Near baseline'
 }
 
+/** Gentle one-line summary of a capture. Deliberately only ever "normal" or "mild"; never alarming. */
+export function summarizeCapture(ratios: number[]): string {
+  const top = Math.max(0, ...ratios)
+  return top > RATIO_HIGH
+    ? 'VOC levels are mildly above your baseline. This is common and nothing to worry about.'
+    : 'VOC levels are normal, close to your baseline.'
+}
+
+export const CAPTURE_S = 30 // capture window; keep in step with CAPTURE_MS in the firmware
 export const MAX_VOLTS = 5.5
 export const GAP_MS = 2000 // break the chart line across dropouts longer than this
 export const STALE_MS = 3000 // "No data for 3 s"

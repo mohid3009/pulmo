@@ -7,6 +7,7 @@ export type Msg =
   | ({ type: 'live'; ms: number; state: string; warmupLeft: number } & Volts)
   | ({ type: 'baseline' } & Volts)
   | ({ type: 'capture'; n: number; ratio: Volts } & Volts)
+  | { type: 'restart' }
 
 /** null = ignored (unknown type). Never throws. */
 export type ParseResult = { msg: Msg } | { error: string } | null
@@ -58,6 +59,9 @@ export function parseFrame(text: string): ParseResult {
       const [mq3, mq135, mq7] = r as number[]
       return { msg: { type: 'capture', n: m.n, ...v, ratio: { mq3, mq135, mq7 } } }
     }
+
+    case 'restart':
+      return { msg: { type: 'restart' } }
 
     default:
       return null

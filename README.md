@@ -17,18 +17,17 @@ Open the URL Vite prints (http://localhost:5173). The dev server also listens on
 
 ## Connect to the device
 
-**Device's own network (default).**
-1. Power the device. It creates a WiFi network named `PulmoSense`.
-2. Join `PulmoSense` from the laptop. The laptop loses internet while joined; the app works offline once loaded, so start `npm run dev` (or open the page) first if you need to.
-3. In the app, keep the address `ws://192.168.4.1:81` and press Connect.
+After its intro animation the device joins WiFi, then shows **WAITING** on its OLED with the network name and IP. It stays there until the dashboard connects (or you press its button to skip), so warm-up starts when you are watching.
 
-**Shared WiFi.** If the firmware joins an existing network, use the IP it prints over serial (`ws://<ip>:81`), or try `ws://pulmosense.local:81` (mDNS does not work on every device).
+**Shared WiFi (firmware default).** Set `WIFI_SSID` / `WIFI_PASSWORD` in the firmware (2.4 GHz only). Put the laptop on the same network and enter `ws://<IP from the OLED>:81`, or try `ws://pulmosense.local:81` (mDNS does not work on every device). If joining fails within 20 s the device falls back to its own network.
+
+**Device's own network.** Set `USE_OWN_NETWORK = true` (or let the fallback kick in). Join `PulmoSense` (password `pulmosense1`) from the laptop and use `ws://192.168.4.1:81`. The laptop loses internet while joined; the app works offline once loaded, so start `npm run dev` (or open the page) first if you need to.
 
 If the connection drops, the app retries after 1 s, 2 s, 5 s, then every 5 s until you press Disconnect. A socket that goes silent for 5 s is treated as dropped, since a powered-off ESP32 sends no close.
 
-**Demo mode** runs a simulator that sends the same messages without hardware (20 s warm-up, then baseline, then ready). Use "Start capture" for a 5 s capture.
+**Demo mode** runs a simulator that sends the same messages without hardware (20 s warm-up, then baseline, then ready). Use "Start capture" for a 30 s capture and "Restart warm-up" to start over.
 
-**Start capture** (shown once the device is Ready) sends `{"cmd":"capture"}` over the WebSocket, which the firmware treats the same as its physical button. This needs the firmware in `firmware/pulmosense/` (or the same `onWsEvent` change in yours); older firmware ignores the command and the app tells you so after a couple of seconds. This is the only message the app ever sends. Simulated data is tagged in the top bar, in the sessions list, and as `simulated` in every CSV row.
+**Start capture** (shown once the device is Ready) sends `{"cmd":"capture"}`, the same as pressing the device button. **Restart warm-up** sends `{"cmd":"restart"}`, the same as holding the button for 3 s: the device discards its baseline and warms up again. The device answers with `{"type":"restart"}` (also when the button is held), and the app ends the old baseline there so ratios stop using it. These two commands are the only messages the app sends; they need the firmware in `firmware/pulmosense/`, and the device ignores them until it has finished booting. Simulated data is tagged in the top bar, in the sessions list, and as `simulated` in every CSV row.
 
 ## Using it
 
@@ -40,7 +39,7 @@ If the connection drops, the app retries after 1 s, 2 s, 5 s, then every 5 s unt
 
 ### CSV
 
-Readings: `iso_time,elapsed_s,mq3_v,mq135_v,mq7_v,state,event,source`. Times are the browser clock on arrival (UTC ISO 8601). `event` holds `baseline`, `capture start` or `capture N`, placed on the first reading at or after the event.
+Readings: `iso_time,elapsed_s,mq3_v,mq135_v,mq7_v,state,event,source`. Times are the browser clock on arrival (UTC ISO 8601). `event` holds `baseline`, `capture start`, `capture N` or `warm-up restart`, placed on the first reading at or after the event.
 
 Captures: `capture,iso_time,sensor,volts,ratio_vs_baseline,descriptor,source`.
 

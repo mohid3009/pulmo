@@ -1,7 +1,7 @@
 import { DEAD_MS, RETRY_MS } from '../config'
 import type { ConnStatus, DataSource } from './source'
 
-/** Read-only WebSocket client with backoff retry until disconnect() is called. */
+/** WebSocket client (sends only capture/restart commands) with backoff retry until disconnect() is called. */
 export class WsSource implements DataSource {
   readonly kind = 'device' as const
   onMessage = (_text: string) => {}
@@ -36,7 +36,15 @@ export class WsSource implements DataSource {
   }
 
   requestCapture() {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ cmd: 'capture' }))
+    this.send('capture')
+  }
+
+  requestRestart() {
+    this.send('restart')
+  }
+
+  private send(cmd: string) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ cmd }))
   }
 
   private open() {

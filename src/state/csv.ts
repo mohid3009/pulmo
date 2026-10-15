@@ -10,7 +10,8 @@ const cell = (v: string | number) => {
 }
 const toCsv = (rows: (string | number)[][]) => '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n'
 
-const label = (e: Event) => (e.kind === 'baseline' ? 'baseline' : e.kind === 'capture' ? `capture ${e.n}` : 'capture start')
+const label = (e: Event) =>
+  e.kind === 'baseline' ? 'baseline' : e.kind === 'capture' ? `capture ${e.n}` : e.kind === 'restart' ? 'warm-up restart' : 'capture start'
 
 export function readingsCsv(m: SessionMeta, readings: Reading[], events: Event[]) {
   const iso = (t: number) => new Date(t).toISOString()
