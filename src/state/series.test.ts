@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { describeRatio } from '../config'
 import { readingsCsv } from './csv'
-import { captureSpans, seriesFrom, type Event, type Reading } from './series'
+import { baselineSegs, captureSpans, lastBaseline, seriesFrom, type Event, type Reading } from './series'
 
 const T0 = 1_700_000_000_000
 const r = (sec: number, state = 'ready'): Reading => ({ t: T0 + sec * 1000, mq3: 0.8, mq135: 1, mq7: 0.6, state })
@@ -22,9 +22,21 @@ it('pairs capture_start with capture into a labelled span', () => {
   ]
   expect(captureSpans(seriesFrom(T0, [], ev))).toEqual([
     { start: 10, end: 15, n: 1 },
-    { start: 25, end: 30, n: 2 },
+    { start: 0, end: 30, n: 2 },
     { start: 40, end: null, n: null },
   ])
+})
+
+it('a warm-up restart ends the baseline until the next one', () => {
+  const ev: Event[] = [
+    { t: T0 + 10_000, kind: 'baseline', v },
+    { t: T0 + 20_000, kind: 'restart' },
+  ]
+  expect(lastBaseline(ev)).toBeUndefined()
+  expect(baselineSegs(seriesFrom(T0, [], ev))).toEqual([{ start: 10, end: 20, v }])
+  ev.push({ t: T0 + 40_000, kind: 'baseline', v })
+  expect(lastBaseline(ev)?.t).toBe(T0 + 40_000)
+  expect(baselineSegs(seriesFrom(T0, [], ev)).map((s) => [s.start, s.end])).toEqual([[10, 20], [40, null]])
 })
 
 it('CSV puts each event on the next reading and keeps the columns', () => {

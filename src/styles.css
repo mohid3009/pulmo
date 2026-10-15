@@ -227,6 +227,12 @@ input:not([type]):disabled { color: var(--muted); background: transparent; }
 .steps li.now .num-dot { background: var(--on-accent); color: var(--accent); }
 .journey-msg { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .journey-msg p { font-size: 16px; }
+.modal-back { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .55); }
+.modal { max-width: 420px; width: 100%; padding: 24px; border-radius: 16px; background: var(--card, #fff); color: inherit; border: 1px solid rgb(128 128 128 / .35); box-shadow: 0 20px 60px rgb(0 0 0 / .4); }
+.modal h2 { margin: 0 0 8px; }
+.modal p { margin: 0 0 18px; font-size: 16px; }
+.capture-summary { margin: 0 0 12px; font-weight: 600; }
+.journey-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .bar { height: 8px; border-radius: 999px; background: var(--shade); margin-top: 10px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.5s linear; }
 

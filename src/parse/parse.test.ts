@@ -30,6 +30,10 @@ describe('parseFrame', () => {
     })
   })
 
+  it('restart', () => {
+    expect(parseFrame('{"type":"restart"}')).toEqual({ msg: { type: 'restart' } })
+  })
+
   it('unknown type is ignored', () => {
     expect(parseFrame('{"type":"telemetry","x":1}')).toBeNull()
   })

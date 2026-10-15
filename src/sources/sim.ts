@@ -1,10 +1,9 @@
-import { SENSORS } from '../config'
+import { CAPTURE_S, SENSORS } from '../config'
 import type { Volts } from '../parse/parse'
 import type { ConnStatus, DataSource } from './source'
 
 const WARMUP_S = 20
 const BASELINE_S = 5
-const CAPTURE_S = 5
 const REST: Volts = { mq3: 0.82, mq135: 1.02, mq7: 0.66 }
 const BREATH: Volts = { mq3: 0.28, mq135: 0.45, mq7: 0.07 }
 
@@ -24,6 +23,7 @@ export class SimSource implements DataSource {
 
   private timer?: ReturnType<typeof setInterval>
   private t0 = 0
+  private warmStart = 0 // seconds since t0 when the current warm-up began
   private n = 0
   private baseline: Volts | null = null
   private baseSamples: Volts[] = []
@@ -33,9 +33,7 @@ export class SimSource implements DataSource {
     clearInterval(this.timer)
     this.t0 = performance.now()
     this.n = 0
-    this.baseline = null
-    this.baseSamples = []
-    this.capture = null
+    this.resetWarmup()
     this.onStatus('connected', 'Demo mode started')
     this.send({ type: 'hello', state: 'warmup', hasBaseline: false })
     this.timer = setInterval(() => this.tick(), 500)
@@ -48,14 +46,28 @@ export class SimSource implements DataSource {
 
   /** Same as pressing the device button: only acts when ready. */
   requestCapture() {
-    if (this.baseline && !this.capture) this.capture = { start: this.elapsed(), gain: 0.6 + Math.random() * 0.8, samples: [] }
+    if (this.baseline && !this.capture) this.capture = { start: this.elapsed() - this.warmStart, gain: 0.6 + Math.random() * 0.8, samples: [] }
+  }
+
+  /** Same as holding the device button for 3 s. Uptime keeps counting, like the firmware. */
+  requestRestart() {
+    this.resetWarmup()
+    this.send({ type: 'restart' })
+  }
+
+  private resetWarmup() {
+    this.warmStart = this.elapsed()
+    this.baseline = null
+    this.baseSamples = []
+    this.capture = null
   }
 
   private elapsed = () => (performance.now() - this.t0) / 1000
   private send = (o: object) => this.onMessage(JSON.stringify(o))
 
   private tick() {
-    const s = this.elapsed()
+    const up = this.elapsed()
+    const s = up - this.warmStart // seconds into the current warm-up
     const state = s < WARMUP_S ? 'warmup' : !this.baseline ? 'baseline' : this.capture ? 'capturing' : 'ready'
     const cold = Math.exp(-s / 6) // MQ heaters read high when cold and settle as they warm
     const p = this.capture ? (s - this.capture.start) / CAPTURE_S : 1
@@ -63,7 +75,7 @@ export class SimSource implements DataSource {
 
     const v = { mq3: 0, mq135: 0, mq7: 0 }
     for (const k of SENSORS) v[k] = r3(REST[k] * (1 + 0.9 * cold) + BREATH[k] * breath + noise())
-    this.send({ type: 'live', ms: Math.round(s * 1000), ...v, state, warmupLeft: state === 'warmup' ? Math.ceil(WARMUP_S - s) : 0 })
+    this.send({ type: 'live', ms: Math.round(up * 1000), ...v, state, warmupLeft: state === 'warmup' ? Math.ceil(WARMUP_S - s) : 0 })
 
     if (state === 'baseline') {
       this.baseSamples.push(v)

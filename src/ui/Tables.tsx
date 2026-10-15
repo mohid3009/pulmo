@@ -1,4 +1,4 @@
-import { describeRatio, SENSORS, SENSOR_LABEL } from '../config'
+import { CAPTURE_S, describeRatio, SENSORS, SENSOR_LABEL, summarizeCapture } from '../config'
 import type { SessionMeta } from '../state/db'
 import type { Capture, Series } from '../state/series'
 import { clock, mmss } from './format'
@@ -11,11 +11,14 @@ const Descriptor = ({ r }: { r: number }) => {
 
 export function CaptureTable({ series, caps }: { series: Series; caps: Capture[] }) {
   if (!caps.length) return <p className="empty">No captures yet. Once the device says Ready, breathe toward the sensors and press Start capture (or the button on the device).</p>
+  const last = caps[caps.length - 1]
   return (
+    <>
+    <p className="capture-summary" role="status">Capture {last.n}: {summarizeCapture(SENSORS.map((k) => last.ratio[k]))}</p>
     <table className="data">
       <thead>
         <tr>
-          <th>Capture</th><th>Time</th><th>Sensor</th><th className="num">Volts (5 s avg)</th><th className="num">Ratio vs baseline</th><th>Descriptor</th>
+          <th>Capture</th><th>Time</th><th>Sensor</th><th className="num">Volts ({CAPTURE_S} s avg)</th><th className="num">Ratio vs baseline</th><th>Descriptor</th>
         </tr>
       </thead>
       <tbody>
@@ -33,6 +36,7 @@ export function CaptureTable({ series, caps }: { series: Series; caps: Capture[]
         )}
       </tbody>
     </table>
+    </>
   )
 }
 
